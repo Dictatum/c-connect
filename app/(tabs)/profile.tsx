@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { Colors } from "../../constants/Colors"
@@ -11,35 +11,13 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(false)
   const { user, signOut } = useAuth()
 
-  const handleNavigateToRoot = async () => {
-    Alert.alert("Exit", "Are you sure you want to exit?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Exit",
-        style: "destructive",
-        onPress: async () => {
-          setLoading(true)
-          try {
-            await signOut()
-            router.push("/login") 
-          } catch (error) {
-            console.error("Navigation error:", error)
-            Alert.alert('Error', 'Failed to exit. Please try again.')
-          } finally {
-            setLoading(false)
-          }
-        },
-      },
-    ])
-  }
+  useEffect(() => {
+    if (!user) {
+      router.replace('/login')  // Changed from '/' to '/login'
+    }
+  }, [user])
 
-  if (!user) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.headerTitle}>Not logged in</Text>
-      </View>
-    )
-  }
+  if (!user) return null
 
   return (
     <ScrollView style={styles.container}>
@@ -117,7 +95,7 @@ export default function ProfileScreen() {
         onPress={async () => {
           try {
             await signOut()
-            router.push('/login')
+            router.replace('/login')  // Changed from '/' to '/login'
           } catch (error) {
             console.error('Logout error:', error)
             Alert.alert('Error', 'Failed to logout')
