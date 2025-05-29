@@ -5,24 +5,26 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from "rea
 import { Ionicons } from "@expo/vector-icons"
 import { Colors } from "../../constants/Colors"
 import { router } from "expo-router"
-import { useAuth } from '../../context/AuthContext'  // Update the import path
+import { useAuth } from '../../context/AuthContext'
 
 export default function ProfileScreen() {
   const [loading, setLoading] = useState(false)
-  const { user, signOut } = useAuth()  // Get user from auth context
+  const { user, signOut } = useAuth()
 
-  const handleSignOut = async () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+  const handleNavigateToRoot = async () => {
+    Alert.alert("Exit", "Are you sure you want to exit?", [
       { text: "Cancel", style: "cancel" },
       {
-        text: "Sign Out",
+        text: "Exit",
         style: "destructive",
         onPress: async () => {
           setLoading(true)
           try {
             await signOut()
+            router.push("/login") 
           } catch (error) {
-            Alert.alert('Error', 'Failed to sign out. Please try again.')
+            console.error("Navigation error:", error)
+            Alert.alert('Error', 'Failed to exit. Please try again.')
           } finally {
             setLoading(false)
           }
@@ -111,12 +113,19 @@ export default function ProfileScreen() {
       </View>
 
       <TouchableOpacity
-        style={[styles.signOutButton, loading && styles.signOutButtonDisabled]}
-        onPress={handleSignOut}
-        disabled={loading}
+        style={[styles.logoutButton, { marginTop: 20 }]}
+        onPress={async () => {
+          try {
+            await signOut()
+            router.push('/login')
+          } catch (error) {
+            console.error('Logout error:', error)
+            Alert.alert('Error', 'Failed to logout')
+          }
+        }}
       >
         <Ionicons name="log-out-outline" size={24} color={Colors.error} />
-        <Text style={styles.signOutButtonText}>{loading ? "Signing Out..." : "Sign Out"}</Text>
+        <Text style={styles.logoutButtonText}>Logout</Text>
       </TouchableOpacity>
 
       <View style={styles.footer}>
@@ -216,26 +225,22 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
     marginLeft: 16,
   },
-  signOutButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    padding: 16,
     marginHorizontal: 20,
-    backgroundColor: "transparent",
     borderRadius: 12,
-    paddingHorizontal: 32,
-    paddingVertical: 16,
     borderWidth: 1,
     borderColor: Colors.error,
     gap: 8,
   },
-  signOutButtonDisabled: {
-    opacity: 0.6,
-  },
-  signOutButtonText: {
+  logoutButtonText: {
     color: Colors.error,
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: '600',
   },
   footer: {
     alignItems: "center",

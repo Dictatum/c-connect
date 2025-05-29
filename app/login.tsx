@@ -4,6 +4,7 @@ import { useState } from "react"
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native"
 import { router } from "expo-router"
 import { useAuth } from "../context/AuthContext"
+import { Colors } from "../constants/Colors"
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("")
@@ -21,7 +22,7 @@ export default function LoginScreen() {
     setLoading(true)
     try {
       await signIn(email, password)
-      // Navigation to tabs is handled in the signIn function
+      router.replace("/(tabs)") // Force navigation to tabs
     } catch (error: any) {
       Alert.alert("Error", error.message)
     } finally {

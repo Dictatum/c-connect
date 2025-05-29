@@ -4,15 +4,17 @@ import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native"
 import { router } from "expo-router"
-import * as SecureStore from 'expo-secure-store'
-import {
-  signIn as authSignIn,
-  signUp as authSignUp,
-  signOut as authSignOut,
-  onAuthStateChange,
-} from "../services/authService"
+import { setItemAsync, deleteItemAsync } from 'expo-secure-store'
 import type { User } from "../types"
 import { Colors } from "../constants/Colors"
+import { auth, db } from '../firebase/config'
+import { doc, getDoc, setDoc } from "firebase/firestore"
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut 
+} from "firebase/auth"
 
 interface AuthContextType {
   user: User | null
@@ -29,28 +31,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    console.log("AuthProvider mounted")
-
-    const unsubscribe = onAuthStateChange(async (user) => {
-      console.log("Auth state changed:", user ? "User logged in" : "User logged out")
-      if (user) {
-        await SecureStore.setItemAsync('userToken', 'true')
-      } else {
-        await SecureStore.deleteItemAsync('userToken')
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      try {
+        if (firebaseUser) {
+          const userDoc = await getDoc(doc(db, "users", firebaseUser.uid))
+          if (userDoc.exists()) {
+            const userData = userDoc.data()
+            const user: User = {
+              id: firebaseUser.uid,
+              email: firebaseUser.email!,
+              name: userData.name,
+              course: userData.course,
+              createdAt: userData.createdAt.toDate(),
+            }
+            setUser(user)
+            await setItemAsync('userToken', 'true')
+            if (!loading) {
+              router.replace("/(tabs)")
+            }
+          }
+        } else {
+          setUser(null)
+          await deleteItemAsync('userToken')
+        }
+      } catch (error) {
+        console.error('Auth state change error:', error)
+      } finally {
+        setLoading(false)
       }
-      setUser(user)
-      setLoading(false)
     })
 
     return unsubscribe
   }, [])
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string): Promise<void> => {
     try {
-      console.log("Signing in...")
-      const user = await authSignIn(email, password)
-      await SecureStore.setItemAsync('userToken', 'true')
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      const userDoc = await getDoc(doc(db, "users", userCredential.user.uid))
+      
+      if (!userDoc.exists()) {
+        throw new Error("User data not found")
+      }
+
+      const userData = userDoc.data()
+      const user: User = {
+        id: userCredential.user.uid,
+        email: userCredential.user.email!,
+        name: userData.name,
+        course: userData.course,
+        createdAt: userData.createdAt.toDate(),
+      }
+      
       setUser(user)
+      await setItemAsync('userToken', 'true')
       router.replace("/(tabs)")
     } catch (error: any) {
       console.error("Sign in error:", error)
@@ -58,11 +91,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const signUp = async (email: string, password: string, userData: any) => {
+  const signUp = async (email: string, password: string, userData: any): Promise<void> => {
     try {
       console.log("Signing up...")
-      await authSignUp(email, password, userData)
-      // Don't set user here - just return to login screen
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      
+      // Create user document in Firestore
+      await setDoc(doc(db, "users", userCredential.user.uid), {
+        name: userData.name,
+        course: userData.course,
+        email: email,
+        createdAt: new Date(),
+      })
+
       router.replace("/login")
     } catch (error: any) {
       console.error("Sign up error:", error)
@@ -70,11 +111,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const signOut = async () => {
+  const signOut = async (): Promise<void> => {
     try {
       console.log("Signing out...")
-      await authSignOut()
-      await SecureStore.deleteItemAsync('userToken')
+      await firebaseSignOut(auth)
+      await deleteItemAsync('userToken')
       setUser(null)
       router.replace("/login")
     } catch (error: any) {

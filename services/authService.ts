@@ -54,7 +54,17 @@ export const signIn = async (email: string, password: string): Promise<User> => 
       throw new Error("User data not found")
     }
 
-    return userDoc.data() as User
+    const userData = userDoc.data()
+    const user: User = {
+      id: firebaseUser.uid,
+      email: firebaseUser.email!,
+      name: userData.name,
+      course: userData.course,
+      createdAt: new Date(userData.createdAt),
+    }
+
+    console.log("User data retrieved:", user)
+    return user
   } catch (error: any) {
     console.error("Sign in error:", error)
     throw new Error(error.message)
@@ -101,8 +111,22 @@ export const onAuthStateChange = (callback: (user: User | null) => void) => {
     console.log("Auth state changed:", firebaseUser ? "User exists" : "No user")
     if (firebaseUser) {
       try {
-        const user = await getCurrentUser()
-        callback(user)
+        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid))
+        if (userDoc.exists()) {
+          const userData = userDoc.data()
+          const user: User = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email!,
+            name: userData.name,
+            course: userData.course,
+            createdAt: new Date(userData.createdAt),
+          }
+          console.log("User data loaded:", user)
+          callback(user)
+        } else {
+          console.log("No user document found")
+          callback(null)
+        }
       } catch (error) {
         console.error("Error in auth state change:", error)
         callback(null)
