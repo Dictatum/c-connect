@@ -44,12 +44,16 @@ export default function GroupsScreen() {
         adminId: user.id,
       })
 
-      Alert.alert("Success", "Group created successfully!")
+      // Clear form and close modal
       setModalVisible(false)
       setGroupName("")
       setGroupDescription("")
       setSelectedCategory("")
-      loadGroups()
+
+      // Reload groups to show the new one
+      await loadGroups()
+
+      Alert.alert("Success", "Group created successfully!")
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to create group")
     } finally {

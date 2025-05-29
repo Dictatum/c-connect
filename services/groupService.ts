@@ -17,21 +17,24 @@ export const createGroup = async (groupData: {
   description: string
   category: string
   adminId: string
-}): Promise<string> => {
+}): Promise<void> => {
   try {
+    console.log("Creating group with data:", groupData)
+    
     const group = {
       name: groupData.name,
       description: groupData.description,
       category: groupData.category,
       admin: groupData.adminId,
-      members: [groupData.adminId],
-      createdAt: new Date(),
+      members: [groupData.adminId], // Admin is automatically a member
+      createdAt: new Date().toISOString() // Store as ISO string
     }
 
     const docRef = await addDoc(collection(db, "groups"), group)
-    return docRef.id
+    console.log("Group created with ID:", docRef.id)
   } catch (error: any) {
-    throw new Error("Failed to create group")
+    console.error("Error creating group:", error)
+    throw new Error(error.message || "Failed to create group")
   }
 }
 
@@ -40,19 +43,14 @@ export const getGroups = async (): Promise<Group[]> => {
     const q = query(collection(db, "groups"), orderBy("createdAt", "desc"))
     const querySnapshot = await getDocs(q)
 
-    const groups: Group[] = []
-    querySnapshot.forEach((doc) => {
-      const data = doc.data()
-      groups.push({
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt.toDate(),
-      } as Group)
-    })
-
-    return groups
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: new Date(doc.data().createdAt)
+    })) as Group[]
   } catch (error: any) {
-    throw new Error("Failed to fetch groups")
+    console.error("Error getting groups:", error)
+    throw new Error(error.message || "Failed to fetch groups")
   }
 }
 

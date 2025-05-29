@@ -1,63 +1,105 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, Modal, TextInput, ScrollView } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { Colors } from "../../constants/Colors"
-
-// Mock data
-const mockEvents = [
-  {
-    id: "1",
-    title: "Tech Talk: AI in Healthcare",
-    description: "Join us for an insightful discussion about AI applications in healthcare.",
-    date: new Date("2024-02-15T18:00:00"),
-    location: "Main Auditorium",
-    organizer: { name: "Tech Society" },
-    attendees: ["1", "2"],
-  },
-  {
-    id: "2",
-    title: "Campus Food Festival",
-    description: "Experience diverse cuisines from around the world.",
-    date: new Date("2024-02-20T12:00:00"),
-    location: "Central Courtyard",
-    organizer: { name: "Student Union" },
-    attendees: ["1", "3", "4"],
-  },
-]
+import { 
+  createEvent, 
+  getEvents, 
+  attendEvent, 
+  unattendEvent 
+} from "../../services/eventService"
+import { useAuth } from "../../context/AuthContext"
+import type { Event } from "../../types"
 
 export default function EventsScreen() {
+  const { user } = useAuth()
   const [modalVisible, setModalVisible] = useState(false)
   const [eventTitle, setEventTitle] = useState("")
   const [eventDescription, setEventDescription] = useState("")
   const [eventLocation, setEventLocation] = useState("")
   const [eventDate, setEventDate] = useState(new Date())
   const [loading, setLoading] = useState(false)
-  const [events] = useState(mockEvents)
+  const [events, setEvents] = useState<Event[]>([])
+
+  useEffect(() => {
+    loadEvents()
+  }, [])
+
+  const loadEvents = async () => {
+    try {
+      const fetchedEvents = await getEvents()
+      setEvents(fetchedEvents)
+    } catch (error) {
+      Alert.alert("Error", "Failed to load events")
+    }
+  }
 
   const handleCreateEvent = async () => {
+    if (!user) {
+      Alert.alert("Error", "You must be logged in to create an event")
+      return
+    }
+
     if (!eventTitle.trim() || !eventDescription.trim() || !eventLocation.trim()) {
       Alert.alert("Error", "Please fill in all fields")
       return
     }
 
     setLoading(true)
-    // Mock create
-    setTimeout(() => {
-      Alert.alert("Success", "Event created successfully!")
+    try {
+      await createEvent({
+        title: eventTitle.trim(),
+        description: eventDescription.trim(),
+        date: eventDate,
+        location: eventLocation.trim(),
+        organizerId: user.id
+      })
+
+      // Clear form and close modal
       setModalVisible(false)
       setEventTitle("")
       setEventDescription("")
       setEventLocation("")
       setEventDate(new Date())
+      
+      // Reload events to show the new one
+      await loadEvents()
+      
+      Alert.alert("Success", "Event created successfully!")
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to create event")
+    } finally {
       setLoading(false)
-    }, 1000)
+    }
   }
 
-  const handleAttendEvent = (event: any) => {
-    const isAttending = event.attendees.includes("1") // Mock current user ID
-    Alert.alert("Success", isAttending ? "Removed from event" : "Added to event!")
+  const handleAttendEvent = async (event: Event) => {
+    if (!user?.id) {
+      Alert.alert("Error", "You must be logged in to attend events")
+      return
+    }
+
+    try {
+      const isAttending = event.attendees.includes(user.id)
+      
+      if (isAttending) {
+        await unattendEvent(event.id, user.id)
+      } else {
+        await attendEvent(event.id, user.id)
+      }
+
+      // Reload events to get the updated data
+      await loadEvents()
+      
+      Alert.alert(
+        "Success", 
+        isAttending ? "Removed from event" : "Added to event!"
+      )
+    } catch (error) {
+      Alert.alert("Error", "Failed to update attendance")
+    }
   }
 
   const formatDate = (date: Date) => {
@@ -88,9 +130,10 @@ export default function EventsScreen() {
     }
   }
 
-  const renderEvent = ({ item }: { item: any }) => {
-    const isAttending = item.attendees.includes("1") // Mock current user ID
-    const isOrganizer = item.organizer.name === "Tech Society" // Mock check
+  const renderEvent = ({ item }: { item: Event }) => {
+    // Ensure user exists before checking ID
+    const isAttending = user?.id ? item.attendees.includes(user.id) : false
+    const isOrganizer = user?.id ? item.organizerId === user.id : false
 
     return (
       <View style={styles.eventCard}>
@@ -124,7 +167,7 @@ export default function EventsScreen() {
           </View>
 
           <View style={styles.eventActions}>
-            {!isOrganizer && (
+            {!isOrganizer && user && (
               <TouchableOpacity
                 style={[styles.attendButton, isAttending && styles.attendingButton]}
                 onPress={() => handleAttendEvent(item)}

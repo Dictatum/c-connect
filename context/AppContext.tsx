@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useContext, useState, useEffect, useCallback } from "react"
 import { subscribeToPosts } from "../services/postService"
 import { getGroups } from "../services/groupService"
 import { getEvents } from "../services/eventService"
@@ -37,7 +37,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe
   }, [])
 
-  const loadGroups = async () => {
+  const loadGroups = useCallback(async () => {
     try {
       console.log("Loading groups...")
       const groupsData = await getGroups()
@@ -46,7 +46,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("Failed to load groups:", error)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    loadGroups()
+  }, [loadGroups])
 
   const loadEvents = async () => {
     try {

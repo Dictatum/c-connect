@@ -33,8 +33,8 @@ export interface Group {
   name: string
   description: string
   category: string
-  members: string[]
   admin: string
+  members: string[]
   createdAt: Date
 }
 
@@ -44,7 +44,12 @@ export interface Event {
   description: string
   date: Date
   location: string
-  organizer: User
+  organizer: {
+    id: string
+    name: string
+    // ...other organizer fields
+  }
+  organizerId: string // Add this field
   attendees: string[]
   createdAt: Date
 }

@@ -3,11 +3,13 @@ import {
   addDoc,
   getDocs,
   doc,
+  getDoc,
   updateDoc,
   query,
   orderBy,
   arrayUnion,
   arrayRemove,
+  Timestamp,
 } from "firebase/firestore"
 import { db } from "../firebase/config"
 import type { Event } from "../types"
@@ -20,19 +22,26 @@ export const createEvent = async (eventData: {
   organizerId: string
 }): Promise<string> => {
   try {
+    // Convert the date to Firestore Timestamp
     const event = {
       title: eventData.title,
       description: eventData.description,
       date: eventData.date,
       location: eventData.location,
       organizerId: eventData.organizerId,
-      attendees: [eventData.organizerId],
+      attendees: [eventData.organizerId], // Organizer automatically attends
       createdAt: new Date(),
     }
 
-    const docRef = await addDoc(collection(db, "events"), event)
+    const docRef = await addDoc(collection(db, "events"), {
+      ...event,
+      date: Timestamp.fromDate(event.date),
+      createdAt: Timestamp.fromDate(event.createdAt),
+    })
+    
     return docRef.id
   } catch (error: any) {
+    console.error("Error creating event:", error)
     throw new Error("Failed to create event")
   }
 }
@@ -47,16 +56,18 @@ export const getEvents = async (): Promise<Event[]> => {
       const eventData = docSnap.data()
 
       // Get organizer data
-      const organizerDoc = await getDocs(query(collection(db, "users")))
-      const organizer = organizerDoc.docs.find((doc) => doc.id === eventData.organizerId)?.data()
+      const organizerRef = doc(db, "users", eventData.organizerId)
+      const organizerDoc = await getDoc(organizerRef)
 
-      if (organizer) {
+      if (organizerDoc.exists()) {
+        const organizer = organizerDoc.data()
         events.push({
           id: docSnap.id,
           ...eventData,
           organizer: {
             id: eventData.organizerId,
-            ...organizer,
+            name: organizer.name,
+            // ...other organizer fields you need
           },
           date: eventData.date.toDate(),
           createdAt: eventData.createdAt.toDate(),
@@ -66,6 +77,7 @@ export const getEvents = async (): Promise<Event[]> => {
 
     return events
   } catch (error: any) {
+    console.error("Error fetching events:", error)
     throw new Error("Failed to fetch events")
   }
 }
