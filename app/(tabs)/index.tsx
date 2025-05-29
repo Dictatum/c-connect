@@ -1,56 +1,48 @@
 "use client"
 
 import { useState } from "react"
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl } from "react-native"
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Alert } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { Colors } from "../../constants/Colors"
+import { useAuth } from "../../context/AuthContext"
+import { useApp } from "../../context/AppContext"
+import { likePost, unlikePost } from "../../services/postService"
+import type { Post } from "../../types"
 
-// Mock data for now
-const mockPosts = [
-  {
-    id: "1",
-    title: "Welcome to Campus!",
-    content: "New semester orientation starts tomorrow at 9 AM in the main auditorium.",
-    category: "Announcements",
-    author: { name: "Campus Admin" },
-    likes: 15,
-    comments: 3,
-    likedBy: [],
-    createdAt: new Date(),
-  },
-  {
-    id: "2",
-    title: "Study Group - Data Structures",
-    content: "Starting a study group for Data Structures and Algorithms. We meet every Tuesday and Thursday at 6 PM.",
-    category: "Academic",
-    author: { name: "Alex Chen" },
-    likes: 12,
-    comments: 7,
-    likedBy: [],
-    createdAt: new Date(),
-  },
-]
-
-const categories = ["Announcements", "Jobs", "Events", "Academic", "Social", "Housing", "Marketplace"]
+const categories = ["All", "Announcements", "Jobs", "Events", "Academic", "Social", "Housing", "Marketplace"]
 
 export default function HomeScreen() {
-  const [posts] = useState(mockPosts)
+  const { user } = useAuth()
+  const { posts, refreshPosts } = useApp()
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [refreshing, setRefreshing] = useState(false)
 
   const onRefresh = async () => {
     setRefreshing(true)
-    // Mock refresh
+    refreshPosts()
     setTimeout(() => setRefreshing(false), 1000)
   }
 
-  const handleLikePost = (postId: string) => {
-    console.log("Liked post:", postId)
+  const handleLikePost = async (post: Post) => {
+    if (!user) return
+
+    try {
+      const isLiked = post.likedBy.includes(user.id)
+      if (isLiked) {
+        await unlikePost(post.id, user.id)
+      } else {
+        await likePost(post.id, user.id)
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to update like")
+    }
   }
 
   const filteredPosts = selectedCategory === "All" ? posts : posts.filter((post) => post.category === selectedCategory)
 
-  const renderPost = ({ item }: { item: any }) => {
+  const renderPost = ({ item }: { item: Post }) => {
+    const isLiked = user ? item.likedBy.includes(user.id) : false
+
     return (
       <View style={styles.postCard}>
         <View style={styles.postHeader}>
@@ -70,13 +62,20 @@ export default function HomeScreen() {
         <Text style={styles.postContent}>{item.content}</Text>
 
         <View style={styles.postActions}>
-          <TouchableOpacity style={styles.actionButton} onPress={() => handleLikePost(item.id)}>
-            <Ionicons name="heart-outline" size={20} color={Colors.textLight} />
-            <Text style={styles.actionText}>{item.likes || 0}</Text>
+          <TouchableOpacity
+            style={[styles.actionButton, isLiked && styles.likedButton]}
+            onPress={() => handleLikePost(item)}
+          >
+            <Ionicons
+              name={isLiked ? "heart" : "heart-outline"}
+              size={20}
+              color={isLiked ? Colors.error : Colors.textLight}
+            />
+            <Text style={[styles.actionText, isLiked && styles.likedText]}>{item.likes}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionButton}>
             <Ionicons name="chatbubble-outline" size={20} color={Colors.textLight} />
-            <Text style={styles.actionText}>{item.comments || 0}</Text>
+            <Text style={styles.actionText}>{item.comments}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionButton}>
             <Ionicons name="share-outline" size={20} color={Colors.textLight} />
@@ -109,7 +108,7 @@ export default function HomeScreen() {
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={["All", ...categories]}
+          data={categories}
           keyExtractor={(item) => item}
           renderItem={({ item }) => (
             <TouchableOpacity
@@ -124,14 +123,22 @@ export default function HomeScreen() {
         />
       </View>
 
-      <FlatList
-        data={filteredPosts}
-        keyExtractor={(item) => item.id}
-        renderItem={renderPost}
-        contentContainerStyle={styles.postsList}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        showsVerticalScrollIndicator={false}
-      />
+      {filteredPosts.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="document-text-outline" size={64} color="#666" />
+          <Text style={styles.emptyStateText}>No posts yet</Text>
+          <Text style={styles.emptyStateSubtext}>Be the first to share something!</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredPosts}
+          keyExtractor={(item) => item.id}
+          renderItem={renderPost}
+          contentContainerStyle={styles.postsList}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </View>
   )
 }
@@ -240,8 +247,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
+  likedButton: {
+    // Additional styling for liked state
+  },
   actionText: {
     color: Colors.textLight,
     fontSize: 12,
+  },
+  likedText: {
+    color: Colors.error,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: Colors.textLight,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: "#888",
+    textAlign: "center",
   },
 })

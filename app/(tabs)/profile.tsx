@@ -5,17 +5,11 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from "rea
 import { Ionicons } from "@expo/vector-icons"
 import { Colors } from "../../constants/Colors"
 import { router } from "expo-router"
-
-// Mock user data
-const mockUser = {
-  id: "1",
-  name: "John Doe",
-  email: "john.doe@university.edu",
-  course: "Computer Science",
-}
+import { useAuth } from '../../context/AuthContext'  // Update the import path
 
 export default function ProfileScreen() {
   const [loading, setLoading] = useState(false)
+  const { user, signOut } = useAuth()  // Get user from auth context
 
   const handleSignOut = async () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -25,14 +19,24 @@ export default function ProfileScreen() {
         style: "destructive",
         onPress: async () => {
           setLoading(true)
-          // Mock sign out
-          setTimeout(() => {
+          try {
+            await signOut()
+          } catch (error) {
+            Alert.alert('Error', 'Failed to sign out. Please try again.')
+          } finally {
             setLoading(false)
-            router.replace("/")
-          }, 1000)
+          }
         },
       },
     ])
+  }
+
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.headerTitle}>Not logged in</Text>
+      </View>
+    )
   }
 
   return (
@@ -48,9 +52,9 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <Text style={styles.userName}>{mockUser.name}</Text>
-        <Text style={styles.userCourse}>{mockUser.course}</Text>
-        <Text style={styles.userEmail}>{mockUser.email}</Text>
+        <Text style={styles.userName}>{user.name}</Text>
+        <Text style={styles.userCourse}>{user.course}</Text>
+        <Text style={styles.userEmail}>{user.email}</Text>
       </View>
 
       <View style={styles.statsSection}>

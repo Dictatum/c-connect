@@ -27,8 +27,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const categories = ["Announcements", "Jobs", "Events", "Academic", "Social", "Housing", "Marketplace"]
 
   useEffect(() => {
+    console.log("Setting up posts subscription...")
     // Subscribe to real-time posts updates
     const unsubscribe = subscribeToPosts((posts) => {
+      console.log("Received posts update:", posts.length)
       setPosts(posts)
     })
 
@@ -37,7 +39,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadGroups = async () => {
     try {
+      console.log("Loading groups...")
       const groupsData = await getGroups()
+      console.log("Loaded groups:", groupsData.length)
       setGroups(groupsData)
     } catch (error) {
       console.error("Failed to load groups:", error)
@@ -46,7 +50,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadEvents = async () => {
     try {
+      console.log("Loading events...")
       const eventsData = await getEvents()
+      console.log("Loaded events:", eventsData.length)
       setEvents(eventsData)
     } catch (error) {
       console.error("Failed to load events:", error)
@@ -55,6 +61,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshPosts = () => {
     // Posts are automatically updated via subscription
+    console.log("Refreshing posts...")
   }
 
   return (

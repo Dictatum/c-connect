@@ -23,12 +23,16 @@ export default function RegisterScreen() {
     setLoading(true)
     try {
       await signUp(email, password, { name, course })
-      Alert.alert("Success", "Account created successfully! Please login.", [
-        {
-          text: "OK",
-          onPress: () => router.push("/login"),
-        },
-      ])
+      Alert.alert(
+        "Success",
+        "Account created successfully! Please login.",
+        [
+          {
+            text: "OK",
+            onPress: () => router.replace("/login")
+          }
+        ]
+      )
     } catch (error: any) {
       Alert.alert("Error", error.message)
     } finally {

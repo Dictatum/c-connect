@@ -4,6 +4,7 @@ import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native"
 import { router } from "expo-router"
+import * as SecureStore from 'expo-secure-store'
 import {
   signIn as authSignIn,
   signUp as authSignUp,
@@ -30,8 +31,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     console.log("AuthProvider mounted")
 
-    const unsubscribe = onAuthStateChange((user) => {
+    const unsubscribe = onAuthStateChange(async (user) => {
       console.log("Auth state changed:", user ? "User logged in" : "User logged out")
+      if (user) {
+        await SecureStore.setItemAsync('userToken', 'true')
+      } else {
+        await SecureStore.deleteItemAsync('userToken')
+      }
       setUser(user)
       setLoading(false)
     })
@@ -43,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log("Signing in...")
       const user = await authSignIn(email, password)
+      await SecureStore.setItemAsync('userToken', 'true')
       setUser(user)
       router.replace("/(tabs)")
     } catch (error: any) {
@@ -56,6 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("Signing up...")
       await authSignUp(email, password, userData)
       // Don't set user here - just return to login screen
+      router.replace("/login")
     } catch (error: any) {
       console.error("Sign up error:", error)
       throw error
@@ -66,6 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log("Signing out...")
       await authSignOut()
+      await SecureStore.deleteItemAsync('userToken')
       setUser(null)
       router.replace("/login")
     } catch (error: any) {

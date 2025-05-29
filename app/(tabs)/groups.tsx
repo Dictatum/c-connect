@@ -1,66 +1,85 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, Modal, TextInput, ScrollView } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { Colors } from "../../constants/Colors"
-
-// Mock data
-const mockGroups = [
-  {
-    id: "1",
-    name: "Computer Science Society",
-    description: "A community for CS students to share knowledge and collaborate on projects.",
-    category: "Academic",
-    members: ["1", "2", "3"],
-    admin: "1",
-  },
-  {
-    id: "2",
-    name: "Photography Club",
-    description: "Capture the beauty of campus life and improve your photography skills.",
-    category: "Arts",
-    members: ["1", "4", "5"],
-    admin: "4",
-  },
-]
+import { useAuth } from "../../context/AuthContext"
+import { useApp } from "../../context/AppContext"
+import { createGroup, joinGroup, leaveGroup } from "../../services/groupService"
+import type { Group } from "../../types"
 
 const categories = ["Academic", "Social", "Sports", "Technology", "Arts"]
 
 export default function GroupsScreen() {
+  const { user } = useAuth()
+  const { groups, loadGroups } = useApp()
   const [modalVisible, setModalVisible] = useState(false)
   const [groupName, setGroupName] = useState("")
   const [groupDescription, setGroupDescription] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("")
   const [loading, setLoading] = useState(false)
-  const [groups] = useState(mockGroups)
+
+  useEffect(() => {
+    loadGroups()
+  }, [])
 
   const handleCreateGroup = async () => {
+    if (!user) {
+      Alert.alert("Error", "You must be logged in to create a group")
+      return
+    }
+
     if (!groupName.trim() || !groupDescription.trim() || !selectedCategory) {
       Alert.alert("Error", "Please fill in all fields")
       return
     }
 
     setLoading(true)
-    // Mock create
-    setTimeout(() => {
+    try {
+      await createGroup({
+        name: groupName.trim(),
+        description: groupDescription.trim(),
+        category: selectedCategory,
+        adminId: user.id,
+      })
+
       Alert.alert("Success", "Group created successfully!")
       setModalVisible(false)
       setGroupName("")
       setGroupDescription("")
       setSelectedCategory("")
+      loadGroups()
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to create group")
+    } finally {
       setLoading(false)
-    }, 1000)
+    }
   }
 
-  const handleJoinLeaveGroup = (group: any) => {
-    const isMember = group.members.includes("1") // Mock current user ID
-    Alert.alert("Success", isMember ? "Left group successfully" : "Joined group successfully")
+  const handleJoinLeaveGroup = async (group: Group) => {
+    if (!user) return
+
+    try {
+      const isMember = group.members.includes(user.id)
+      if (isMember) {
+        await leaveGroup(group.id, user.id)
+        Alert.alert("Success", "Left group successfully")
+      } else {
+        await joinGroup(group.id, user.id)
+        Alert.alert("Success", "Joined group successfully")
+      }
+      loadGroups()
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to update group membership")
+    }
   }
 
-  const renderGroup = ({ item }: { item: any }) => {
-    const isMember = item.members.includes("1") // Mock current user ID
-    const isAdmin = item.admin === "1" // Mock current user ID
+  const renderGroup = ({ item }: { item: Group }) => {
+    if (!user) return null
+
+    const isMember = item.members.includes(user.id)
+    const isAdmin = item.admin === user.id
 
     return (
       <View style={styles.groupCard}>
@@ -120,13 +139,21 @@ export default function GroupsScreen() {
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={groups}
-        keyExtractor={(item) => item.id}
-        renderItem={renderGroup}
-        contentContainerStyle={styles.groupsList}
-        showsVerticalScrollIndicator={false}
-      />
+      {groups.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="people-outline" size={64} color="#666" />
+          <Text style={styles.emptyStateText}>No groups yet</Text>
+          <Text style={styles.emptyStateSubtext}>Create the first group!</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={groups}
+          keyExtractor={(item) => item.id}
+          renderItem={renderGroup}
+          contentContainerStyle={styles.groupsList}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
       <Modal
         animationType="slide"
@@ -222,6 +249,24 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: "center",
     alignItems: "center",
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: Colors.textLight,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: "#888",
+    textAlign: "center",
   },
   groupsList: {
     paddingHorizontal: 20,

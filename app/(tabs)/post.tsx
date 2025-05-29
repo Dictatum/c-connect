@@ -14,24 +14,38 @@ import {
 } from "react-native"
 import { router } from "expo-router"
 import { Colors } from "../../constants/Colors"
+import { useAuth } from "../../context/AuthContext"
+import { createPost } from "../../services/postService"
 
 const categories = ["Announcements", "Jobs", "Events", "Academic", "Social", "Housing", "Marketplace"]
 
 export default function PostScreen() {
+  const { user } = useAuth()
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("")
   const [loading, setLoading] = useState(false)
 
   const handlePost = async () => {
+    if (!user) {
+      Alert.alert("Error", "You must be logged in to create a post")
+      return
+    }
+
     if (!title.trim() || !content.trim() || !selectedCategory) {
       Alert.alert("Error", "Please fill in all required fields")
       return
     }
 
     setLoading(true)
-    // Mock post creation
-    setTimeout(() => {
+    try {
+      await createPost({
+        title: title.trim(),
+        content: content.trim(),
+        category: selectedCategory,
+        authorId: user.id,
+      })
+
       Alert.alert("Success", "Post created successfully!", [
         {
           text: "OK",
@@ -43,8 +57,11 @@ export default function PostScreen() {
           },
         },
       ])
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to create post")
+    } finally {
       setLoading(false)
-    }, 1000)
+    }
   }
 
   return (
@@ -75,7 +92,7 @@ export default function PostScreen() {
             textAlignVertical="top"
           />
 
-          <Text style={styles.sectionTitle}>Category</Text>
+          <Text style={styles.sectionTitle}>Category *</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryContainer}>
             {categories.map((category) => (
               <TouchableOpacity

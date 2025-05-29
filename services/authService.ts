@@ -27,7 +27,10 @@ export const signUp = async (
     }
 
     console.log("Saving user data to Firestore")
-    await setDoc(doc(db, "users", firebaseUser.uid), user)
+    await setDoc(doc(db, "users", firebaseUser.uid), {
+      ...user,
+      createdAt: user.createdAt.toISOString(), // Convert Date to string for Firestore
+    })
 
     // Sign out the user after registration so they need to login
     await firebaseSignOut(auth)
@@ -82,7 +85,11 @@ export const getCurrentUser = async (): Promise<User | null> => {
       return null
     }
 
-    return userDoc.data() as User
+    const userData = userDoc.data()
+    return {
+      ...userData,
+      createdAt: new Date(userData.createdAt), // Convert string back to Date
+    } as User
   } catch (error) {
     console.error("Error getting current user:", error)
     return null

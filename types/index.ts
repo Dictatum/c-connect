@@ -1,9 +1,10 @@
 export interface User {
   id: string
-  email: string
   name: string
+  email: string
   course: string
   createdAt: Date
+  // Add any other user fields you need
 }
 
 export interface Post {
